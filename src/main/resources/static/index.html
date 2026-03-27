@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>FIDO2 / WebAuthn Demo</title>
+  <style>
+    /* ── Reset & base ─────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    /* ── Header ───────────────────────────────────────────────────────────── */
+    header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+    header h1 {
+      font-size: 2rem;
+      font-weight: 700;
+      background: linear-gradient(135deg, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 0.4rem;
+    }
+    header p {
+      color: #94a3b8;
+      font-size: 0.95rem;
+    }
+
+    /* ── Cards ────────────────────────────────────────────────────────────── */
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 1.5rem;
+      width: 100%;
+      max-width: 860px;
+    }
+
+    .card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.75rem;
+    }
+    .card h2 {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin-bottom: 0.3rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .card h2 .icon { font-size: 1.3rem; }
+    .card p.sub {
+      color: #94a3b8;
+      font-size: 0.85rem;
+      margin-bottom: 1.25rem;
+      line-height: 1.5;
+    }
+
+    /* ── Form inputs ──────────────────────────────────────────────────────── */
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: #94a3b8;
+      margin-bottom: 0.3rem;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+    }
+    input[type="text"],
+    input[type="email"] {
+      width: 100%;
+      padding: 0.6rem 0.85rem;
+      background: #0f172a;
+      border: 1px solid #334155;
+      border-radius: 8px;
+      color: #e2e8f0;
+      font-size: 0.95rem;
+      margin-bottom: 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: #38bdf8; }
+
+    /* ── Buttons ──────────────────────────────────────────────────────────── */
+    .btn {
+      width: 100%;
+      padding: 0.7rem 1rem;
+      border: none;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: opacity 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+    }
+    .btn:active { transform: scale(0.98); }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-register  { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; }
+    .btn-auth      { background: linear-gradient(135deg, #10b981, #3b82f6); color: #fff; }
+
+    /* ── Status / log ─────────────────────────────────────────────────────── */
+    .status {
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      line-height: 1.5;
+      display: none;
+    }
+    .status.show   { display: block; }
+    .status.success { background: #064e3b; border: 1px solid #10b981; color: #6ee7b7; }
+    .status.error   { background: #450a0a; border: 1px solid #ef4444; color: #fca5a5; }
+    .status.info    { background: #0c1a2e; border: 1px solid #38bdf8; color: #7dd3fc; }
+
+    /* ── Log panel ────────────────────────────────────────────────────────── */
+    .log-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 12px;
+      padding: 1.25rem 1.75rem;
+      width: 100%;
+      max-width: 860px;
+      margin-top: 1.5rem;
+    }
+    .log-card h3 {
+      font-size: 0.9rem;
+      font-weight: 600;
+      color: #94a3b8;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .log-card h3 button {
+      background: none;
+      border: 1px solid #334155;
+      color: #64748b;
+      font-size: 0.75rem;
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .log-card h3 button:hover { color: #94a3b8; }
+    #logOutput {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 0.78rem;
+      line-height: 1.6;
+      color: #94a3b8;
+      max-height: 320px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+    .log-ts  { color: #475569; }
+    .log-ok  { color: #34d399; }
+    .log-err { color: #f87171; }
+    .log-inf { color: #38bdf8; }
+
+    /* ── Loader spinner ───────────────────────────────────────────────────── */
+    .spinner {
+      width: 16px; height: 16px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      display: none;
+    }
+    .spinner.show { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Compatibility badge ──────────────────────────────────────────────── */
+    #compatBadge {
+      font-size: 0.8rem;
+      padding: 0.4rem 1rem;
+      border-radius: 99px;
+      margin-bottom: 1.5rem;
+      font-weight: 500;
+    }
+    .compat-ok  { background: #064e3b; color: #6ee7b7; border: 1px solid #10b981; }
+    .compat-err { background: #450a0a; color: #fca5a5; border: 1px solid #ef4444; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>🔐 FIDO2 / WebAuthn Demo</h1>
+    <p>Passwordless authentication — register and authenticate with your platform authenticator</p>
+  </header>
+
+  <div id="compatBadge">Checking WebAuthn support…</div>
+
+  <div class="grid">
+
+    <!-- ── Registration card ─────────────────────────────────────────────── -->
+    <div class="card">
+      <h2><span class="icon">🪪</span> Register</h2>
+      <p class="sub">
+        Create a new passkey for your account. Your device will prompt you
+        to use Face ID, Touch ID, Windows Hello, or a security key.
+      </p>
+
+      <label for="regUsername">Username / Email</label>
+      <input id="regUsername" type="email" placeholder="alice@example.com" />
+
+      <label for="regDisplay">Display Name</label>
+      <input id="regDisplay"  type="text"  placeholder="Alice Smith" />
+
+      <button class="btn btn-register" id="btnRegister" onclick="handleRegister()">
+        <span class="spinner" id="regSpinner"></span>
+        <span id="regBtnText">Register Passkey</span>
+      </button>
+
+      <div class="status" id="regStatus"></div>
+    </div>
+
+    <!-- ── Authentication card ───────────────────────────────────────────── -->
+    <div class="card">
+      <h2><span class="icon">✅</span> Authenticate</h2>
+      <p class="sub">
+        Sign in with your registered passkey. No password needed — just
+        approve the biometric or security-key prompt.
+      </p>
+
+      <label for="authUsername">Username / Email</label>
+      <input id="authUsername" type="email" placeholder="alice@example.com" />
+
+      <button class="btn btn-auth" id="btnAuth" onclick="handleAuthenticate()">
+        <span class="spinner" id="authSpinner"></span>
+        <span id="authBtnText">Sign In with Passkey</span>
+      </button>
+
+      <div class="status" id="authStatus"></div>
+    </div>
+  </div>
+
+  <!-- ── Activity log ──────────────────────────────────────────────────── -->
+  <div class="log-card">
+    <h3>
+      Activity Log
+      <button onclick="clearLog()">Clear</button>
+    </h3>
+    <div id="logOutput">Waiting for activity…</div>
+  </div>
+
+  <script src="/fido2.js"></script>
+  <script>
+    // ── WebAuthn compatibility check ─────────────────────────────────────
+    (function checkCompat() {
+      const badge = document.getElementById('compatBadge');
+      if (window.PublicKeyCredential) {
+        badge.textContent = '✓ WebAuthn is supported in this browser';
+        badge.className = 'compat-ok';
+      } else {
+        badge.textContent = '✗ WebAuthn is NOT supported — use a modern browser over HTTPS';
+        badge.className = 'compat-err';
+        document.querySelectorAll('.btn').forEach(b => b.disabled = true);
+      }
+    })();
+
+    // ── Register button handler ──────────────────────────────────────────
+    async function handleRegister() {
+      const username    = document.getElementById('regUsername').value.trim();
+      const displayName = document.getElementById('regDisplay').value.trim() || username;
+
+      if (!username) {
+        showStatus('regStatus', 'error', 'Please enter a username.');
+        return;
+      }
+
+      setLoading('reg', true);
+      clearStatus('regStatus');
+
+      try {
+        const result = await Fido2.register(username, displayName);
+        showStatus('regStatus', 'success',
+          `✓ Passkey registered!\nCredential ID: ${result.credentialId}`);
+        logEntry('ok', `REGISTER OK  user=${username}  cred=${result.credentialId}`);
+      } catch (err) {
+        const msg = err.message || String(err);
+        showStatus('regStatus', 'error', `✗ Registration failed:\n${msg}`);
+        logEntry('err', `REGISTER FAIL  user=${username}  error=${msg}`);
+      } finally {
+        setLoading('reg', false);
+      }
+    }
+
+    // ── Authenticate button handler ──────────────────────────────────────
+    async function handleAuthenticate() {
+      const username = document.getElementById('authUsername').value.trim();
+
+      if (!username) {
+        showStatus('authStatus', 'error', 'Please enter a username.');
+        return;
+      }
+
+      setLoading('auth', true);
+      clearStatus('authStatus');
+
+      try {
+        const result = await Fido2.authenticate(username);
+        showStatus('authStatus', 'success',
+          `✓ Authentication successful!\nWelcome back, ${result.username}`);
+        logEntry('ok', `AUTH    OK  user=${result.username}`);
+      } catch (err) {
+        const msg = err.message || String(err);
+        showStatus('authStatus', 'error', `✗ Authentication failed:\n${msg}`);
+        logEntry('err', `AUTH    FAIL  user=${username}  error=${msg}`);
+      } finally {
+        setLoading('auth', false);
+      }
+    }
+
+    // ── UI helpers ───────────────────────────────────────────────────────
+    function setLoading(prefix, loading) {
+      const btn     = document.getElementById(`btn${prefix === 'reg' ? 'Register' : 'Auth'}`);
+      const spinner = document.getElementById(`${prefix}Spinner`);
+      const text    = document.getElementById(`${prefix}BtnText`);
+      btn.disabled      = loading;
+      spinner.className = loading ? 'spinner show' : 'spinner';
+      text.textContent  = loading
+        ? (prefix === 'reg' ? 'Registering…' : 'Authenticating…')
+        : (prefix === 'reg' ? 'Register Passkey' : 'Sign In with Passkey');
+    }
+
+    function showStatus(id, type, message) {
+      const el = document.getElementById(id);
+      el.textContent  = message;
+      el.className    = `status show ${type}`;
+    }
+
+    function clearStatus(id) {
+      const el = document.getElementById(id);
+      el.className = 'status';
+    }
+
+    const logEl = document.getElementById('logOutput');
+    let firstEntry = true;
+
+    function logEntry(level, msg) {
+      if (firstEntry) { logEl.textContent = ''; firstEntry = false; }
+      const ts   = new Date().toISOString().replace('T', ' ').slice(0, 23);
+      const cls  = level === 'ok' ? 'log-ok' : level === 'err' ? 'log-err' : 'log-inf';
+      const line = document.createElement('div');
+      line.innerHTML = `<span class="log-ts">${ts}</span>  <span class="${cls}">${escHtml(msg)}</span>`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    function clearLog() {
+      logEl.textContent = 'Log cleared.';
+      firstEntry = false;
+    }
+
+    function escHtml(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>

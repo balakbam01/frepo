@@ -1,0 +1,39 @@
+package com.example.fido2;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.boot.SpringApplication;
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.scheduling.annotation.EnableScheduling;
+import org.springframework.context.event.EventListener;
+import org.springframework.core.env.Environment;
+
+@SpringBootApplication
+@EnableScheduling
+public class Fido2Application {
+
+    private static final Logger log = LoggerFactory.getLogger(Fido2Application.class);
+
+    private final Environment environment;
+
+    public Fido2Application(Environment environment) {
+        this.environment = environment;
+    }
+
+    public static void main(String[] args) {
+        SpringApplication.run(Fido2Application.class, args);
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    public void onApplicationReady() {
+        String port = environment.getProperty("server.port", "8080");
+        String origin = environment.getProperty("fido2.origin", "http://localhost:" + port);
+        log.info("═══════════════════════════════════════════════════════════");
+        log.info("  FIDO2 Backend Server started successfully");
+        log.info("  Frontend UI : {}/index.html", origin);
+        log.info("  Health      : {}/actuator/health", origin);
+        log.info("  API base    : {}/api/v1", origin);
+        log.info("═══════════════════════════════════════════════════════════");
+    }
+}

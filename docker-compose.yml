@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  fido-db:
+    image: mariadb:12-ubi
+    container_name: fido-db
+    ports:
+      - "3307:3306"          # 3306 is taken by local MariaDB; app connects via localhost:3307
+    environment:
+      MARIADB_ROOT_PASSWORD: cvbncvbn
+      MARIADB_DATABASE: fidodb
+      MARIADB_USER: fidouser1
+      MARIADB_PASSWORD: fido123
+    volumes:
+      - fido-db-data:/var/lib/mysql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  fido-db-data:
+    driver: local
